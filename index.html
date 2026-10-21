@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Найди свою программу — Pulse AI-тренер</title>
+  <style>
+    :root {
+      --primary: #7B61FF;
+      --bg: #FFFFFF;
+      --text: #1A1A2E;
+      --accent: #FF6B6B;
+      --gray: #F5F5F7;
+      --muted: #6B6B80;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+    }
+    .wrap { width: 100%; max-width: 480px; padding-top: 24px; }
+    .screen { display: none; animation: fadeIn 0.4s ease; }
+    .screen.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    h1 { font-size: 26px; line-height: 1.25; margin-bottom: 10px; }
+    h2 { font-size: 22px; line-height: 1.3; margin-bottom: 10px; }
+    p.sub { color: var(--muted); font-size: 16px; line-height: 1.5; margin-bottom: 24px; }
+
+    .progress { height: 6px; background: var(--gray); border-radius: 3px; margin-bottom: 24px; overflow: hidden; }
+    .progress-bar { height: 100%; width: 0; background: var(--primary); transition: width 0.4s ease; }
+
+    .option {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: var(--gray);
+      border: 2px solid transparent;
+      border-radius: 14px;
+      padding: 16px 18px;
+      font-size: 16px;
+      color: var(--text);
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .option:hover, .option:focus { border-color: var(--primary); outline: none; }
+    .option.selected { border-color: var(--primary); background: #F0EDFF; }
+
+    .btn {
+      display: block;
+      width: 100%;
+      background: var(--primary);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn-link { background: none; color: var(--primary); font-weight: 500; margin-top: 12px; }
+
+    .program-card {
+      background: var(--gray);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .program-card .name { color: var(--primary); font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+    .program-card .desc { font-size: 16px; line-height: 1.5; margin-bottom: 12px; }
+    .program-card ul { padding-left: 20px; font-size: 15px; line-height: 1.6; }
+
+    .preview {
+      position: relative;
+      background: var(--gray);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 8px;
+    }
+    .preview li { list-style: none; padding: 8px 0; border-bottom: 1px solid #E5E5EA; font-size: 15px; filter: blur(4px); user-select: none; }
+    .preview li:last-child { border-bottom: none; }
+    .preview::after {
+      content: "Полная программа доступна после email";
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; padding: 16px;
+      font-size: 14px; font-weight: 600; color: var(--text);
+      background: rgba(255,255,255,0.4);
+      border-radius: 14px;
+    }
+
+    input[type="text"], input[type="email"] {
+      width: 100%;
+      border: 2px solid var(--gray);
+      border-radius: 14px;
+      padding: 15px 16px;
+      font-size: 16px;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    input:focus { outline: none; border-color: var(--primary); }
+    .disclaimer { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 12px; }
+    .error { color: var(--accent); font-size: 14px; margin-bottom: 8px; display: none; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Квиз -->
+    <section id="quiz" class="screen active">
+      <h1>Найди свою программу за минуту</h1>
+      <p class="sub">Четыре вопроса, и мы подберём тренировки под твою жизнь. Без регистрации и без обязательств.</p>
+      <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+      <div id="questionBox"></div>
+      <button class="btn" id="nextBtn" disabled>Дальше</button>
+    </section>
+
+    <!-- Результат -->
+    <section id="result" class="screen">
+      <h2 id="resultTitle"></h2>
+      <p class="sub" id="resultSub"></p>
+      <div class="program-card">
+        <div class="name" id="programName"></div>
+        <div class="desc" id="programDesc"></div>
+        <ul id="programList"></ul>
+      </div>
+      <div class="preview">
+        <ul>
+          <li>Упражнение 1: приседания у стены</li>
+          <li>Упражнение 2: мостик на полу</li>
+          <li>Упражнение 3: растяжка спины</li>
+        </ul>
+      </div>
+      <button class="btn" id="toEmailBtn">Получить полную программу</button>
+    </section>
+
+    <!-- Email -->
+    <section id="emailSection" class="screen">
+      <h2>Пришлём программу на почту</h2>
+      <p class="sub">Полный план на 4 недели и новости о запуске AI-тренера, когда он выйдет. Без спама: одно письмо в неделю, отписаться можно в любой момент.</p>
+      <form id="emailForm" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+        <input type="text" name="name" id="nameInput" placeholder="Как тебя зовут?" required>
+        <input type="email" name="email" id="emailInput" placeholder="Твоя почта" required>
+        <input type="hidden" name="program" id="programField">
+        <input type="hidden" name="answers" id="answersField">
+        <div class="error" id="formError">Проверь почту и попробуй ещё раз.</div>
+        <button class="btn" type="submit" id="submitBtn">Получить программу</button>
+      </form>
+      <p class="disclaimer">Нажимая кнопку, ты соглашаешься получать письма от Pulse и принимаешь политику обработки данных. Почта нужна только для программы и новостей о запуске.</p>
+    </section>
+
+    <!-- Благодарность -->
+    <section id="thanks" class="screen">
+      <h2 id="thanksTitle">Спасибо!</h2>
+      <p class="sub">Программа уже в пути. Проверь почту, письмо придёт в течение нескольких минут.</p>
+      <ul style="padding-left: 20px; line-height: 1.8; font-size: 16px; margin-bottom: 20px;">
+        <li>Открой письмо и посмотри программу на 4 недели.</li>
+        <li>В мае выходит AI-тренер: мы напишем, когда он будет доступен.</li>
+        <li>Если письма не пришли, проверь папку «Спам».</li>
+      </ul>
+      <button class="btn btn-link" onclick="location.reload()">Вернуться на главную</button>
+    </section>
+
+  </div>
+
+  <script>
+    // Вопросы квиза (тексты из webfunnel-copy.md)
+    const QUESTIONS = [
+      {
+        text: "Что тебя привело сюда?",
+        options: [
+          "Хочу уйти от лишнего и почувствовать лёгкость",
+          "Хочу набрать форму и сделать тело крепче",
+          "Просто хочу больше двигаться",
+          "Хочу вернуться к тренировкам после паузы"
+        ]
+      },
+      {
+        text: "Как ты сейчас тренируешься?",
+        options: [
+          "Почти никак, с нуля",
+          "Иногда, но бросаю через пару недель",
+          "Занималась раньше, хочу вернуться",
+          "Регулярно, хочу что-то новое"
+        ]
+      },
+      {
+        text: "Где тебе удобнее заниматься?",
+        options: [
+          "Дома, без инвентаря",
+          "Дома, с парой гантелей или коврика",
+          "В зале, но без понятной программы",
+          "Где получится: дома, в парке или в командировке"
+        ]
+      },
+      {
+        text: "Сколько времени в день у тебя есть?",
+        options: [
+          "10–15 минут",
+          "20–30 минут",
+          "45 минут и больше",
+          "Пока не знаю, подскажите"
+        ]
+      }
+    ];
+
+    // Программы (тексты из webfunnel-copy.md)
+    const PROGRAMS = {
+      start: {
+        name: "Старт без напряга",
+        desc: "Для тех, кто начинает с нуля или бросал несколько раз. Короткие тренировки без инвентаря, нагрузка растёт постепенно. Главное здесь — привычка, а не результат.",
+        list: ["Тренировки без инвентаря", "Нагрузка растёт постепенно", "Упор на регулярность"]
+      },
+      return: {
+        name: "Возвращение в форму",
+        desc: "Для тех, кто занимался раньше и вернулся после паузы. Программа начинается мягче, чем вы помните, и подстраивается под тот темп, который получается.",
+        list: ["Мягкий старт", "Подстройка под твой темп", "Понятный переход к обычным нагрузкам"]
+      },
+      home: {
+        name: "Рельеф дома",
+        desc: "Для тех, кто хочет тренироваться дома и видеть, как меняется тело. Упражнения с собственным весом, без выбора и без таймеров. Программа не обещает конкретных результатов.",
+        list: ["Упражнения с собственным весом", "Без инвентаря", "Без таймеров и жёстких норм"]
+      },
+      gym: {
+        name: "Зал без тренера",
+        desc: "Для тех, кто ходит в зал, но не знает, что делать. Структура тренировок, понятные упражнения, прогрессия по неделям.",
+        list: ["Структура тренировок", "Понятные упражнения", "Прогрессия по неделям"]
+      },
+      active: {
+        name: "Активный образ жизни",
+        desc: "Для тех, кто хочет просто двигаться. Короткие тренировки, растяжка, лёгкие кардио-блоки. Без давления и без жёстких норм.",
+        list: ["Короткие тренировки", "Растяжка и лёгкое кардио", "Без давления"]
+      }
+    };
+
+    const answers = [null, null, null, null];
+    let current = 0;
+
+    const questionBox = document.getElementById("questionBox");
+    const nextBtn = document.getElementById("nextBtn");
+    const progressBar = document.getElementById("progressBar");
+
+    function showScreen(id) {
+      document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+      window.scrollTo(0, 0);
+    }
+
+    function renderQuestion() {
+      const q = QUESTIONS[current];
+      progressBar.style.width = ((current) / QUESTIONS.length * 100) + "%";
+      questionBox.innerHTML = "";
+      const title = document.createElement("h2");
+      title.textContent = q.text;
+      questionBox.appendChild(title);
+      q.options.forEach((opt, i) => {
+        const btn = document.createElement("button");
+        btn.className = "option" + (answers[current] === i ? " selected" : "");
+        btn.textContent = opt;
+        btn.onclick = () => {
+          answers[current] = i;
+          renderQuestion();
+          nextBtn.disabled = false;
+        };
+        questionBox.appendChild(btn);
+      });
+      nextBtn.disabled = answers[current] === null;
+      nextBtn.textContent = current === QUESTIONS.length - 1 ? "Посмотреть программу" : "Дальше";
+    }
+
+    // Выбор программы по ответам. Порядок проверок важен.
+    function pickProgram(a) {
+      if (a[1] === 0) return "start";
+      if (a[1] === 2 || a[0] === 3) return "return";
+      if (a[2] === 2) return "gym";
+      if (a[0] === 0 && a[2] === 0) return "home";
+      return "active";
+    }
+
+    // Длительность тренировки по ответу на вопрос 4
+    function pickDuration(a) {
+      return [15, 25, 45, 15][a[3]];
+    }
+
+    nextBtn.onclick = () => {
+      if (current < QUESTIONS.length - 1) {
+        current++;
+        renderQuestion();
+      } else {
+        showResult();
+      }
+    };
+
+    function showResult() {
+      const key = pickProgram(answers);
+      const p = PROGRAMS[key];
+      const duration = pickDuration(answers);
+
+      progressBar.style.width = "100%";
+      document.getElementById("resultTitle").textContent = "Твоя программа: " + p.name;
+      document.getElementById("resultSub").textContent = "Подобрали по твоим ответам. Это стартовая версия, она будет подстраиваться под тебя.";
+      document.getElementById("programName").textContent = p.name;
+      document.getElementById("programDesc").textContent = p.desc;
+
+      const list = document.getElementById("programList");
+      list.innerHTML = "";
+      p.list.forEach(item => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        list.appendChild(li);
+      });
+      const durLi = document.createElement("li");
+      durLi.textContent = "Тренировки около " + duration + " минут";
+      list.appendChild(durLi);
+
+      document.getElementById("programField").value = p.name;
+      document.getElementById("answersField").value = answers.join(",");
+      showScreen("result");
+    }
+
+    document.getElementById("toEmailBtn").onclick = () => showScreen("emailSection");
+
+    // Отправка в Formspree
+    const form = document.getElementById("emailForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById("submitBtn");
+      const formError = document.getElementById("formError");
+      submitBtn.disabled = true;
+      formError.style.display = "none";
+
+      const name = document.getElementById("nameInput").value.trim();
+      try {
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          headers: { "Accept": "application/json" }
+        });
+        if (response.ok) {
+          document.getElementById("thanksTitle").textContent = "Спасибо, " + name + "!";
+          showScreen("thanks");
+        } else {
+          formError.style.display = "block";
+        }
+      } catch (err) {
+        formError.style.display = "block";
+      }
+      submitBtn.disabled = false;
+    });
+
+    renderQuestion();
+  </script>
+</body>
+</html>
